@@ -16,7 +16,11 @@ import {
   Smile,
   ChevronDown,
   Info,
-  Download
+  Download,
+  Youtube,
+  Pin,
+  MessageSquare,
+  Share2
 } from 'lucide-react';
 
 export const Icons = {
@@ -36,5 +40,9 @@ export const Icons = {
   Smile,
   ChevronDown,
   Info,
-  Download
+  Download,
+  Youtube,
+  Pinterest: Pin,
+  Discord: MessageSquare,
+  Share: Share2
 };

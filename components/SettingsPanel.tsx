@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, AspectRatio, Tone } from '../types';
+import { Settings, AspectRatio, Tone, TextLength } from '../types';
 import { Icons } from './Icon';
 
 interface SettingsPanelProps {
@@ -17,6 +17,12 @@ const TONE_DESCRIPTIONS: Record<Tone, string> = {
 };
 
 const tones: Tone[] = ['Professional', 'Witty', 'Urgent', 'Empathetic', 'Controversial'];
+
+const textLengths: { value: TextLength; label: string }[] = [
+  { value: 'Short', label: 'Short (Concise)' },
+  { value: 'Medium', label: 'Medium (Standard)' },
+  { value: 'Long', label: 'Long (Detailed)' },
+];
 
 const supportedRatios = [
   AspectRatio.Auto,
@@ -54,7 +60,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         <span>Generation Configuration</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         
         {/* Tone Selector */}
         <div ref={toneDropdownRef} className="relative group/dropdown">
@@ -98,6 +104,30 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
               </div>
             </div>
           )}
+        </div>
+
+        {/* Text Length Selector */}
+        <div>
+          <label className="block text-xs uppercase tracking-wider text-neutral-500 font-bold mb-2">
+            Text Length
+          </label>
+          <div className="relative">
+             <select
+              value={settings.textLength}
+              onChange={(e) => onUpdate({ textLength: e.target.value as TextLength })}
+              disabled={disabled}
+              className="w-full bg-neutral-900 border border-neutral-700 text-white text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block p-2.5 appearance-none disabled:opacity-50"
+            >
+              {textLengths.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400">
+               <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+            </div>
+          </div>
         </div>
 
         {/* Aspect Ratio Selector */}

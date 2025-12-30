@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { GeneratedContent, ImageSize, AspectRatio, Platform } from "../types";
+import { GeneratedContent, ImageSize, AspectRatio, Platform, SocialPost } from "../types";
 
 // Helper to determine aspect ratio based on platform if Auto is selected
 const getAspectRatioForPlatform = (platform: Platform, selectedRatio: AspectRatio): string => {
@@ -10,6 +10,9 @@ const getAspectRatioForPlatform = (platform: Platform, selectedRatio: AspectRati
     case 'linkedin': return '1:1'; // Square
     case 'twitter': return '16:9'; // Landscape standard
     case 'instagram': return '3:4'; // Vertical portrait
+    case 'pinterest': return '3:4'; // Vertical standard for pins
+    case 'youtube': return '16:9'; // Landscape thumbnail
+    case 'discord': return '16:9'; // Landscape or square usually
     default: return '1:1';
   }
 };
@@ -32,7 +35,10 @@ const getStyleModifiers = (platform: Platform, tone: string, size: ImageSize): s
   const platformStyles = {
     linkedin: "Professional photography, polished corporate aesthetic, clean composition, high definition, trusted business style",
     twitter: "Eye-catching, bold graphic design, high contrast, viral visual style, punchy and dynamic",
-    instagram: "Aesthetic lifestyle photography, cinematic lighting, visually stunning, trending instagram style, highly detailed"
+    instagram: "Aesthetic lifestyle photography, cinematic lighting, visually stunning, trending instagram style, highly detailed",
+    pinterest: "Inspirational, vertical composition, aesthetic DIY style, warm lighting, high quality lifestyle, pinterest trends, organized",
+    youtube: "YouTube thumbnail style, high saturation, expressive, engaging, clickable, text overlay space, 16:9 cinematic",
+    discord: "Digital art, community vibes, gamer aesthetic, neon accents, dark mode compatible, illustration, vector art"
   };
 
   const toneStyles: Record<string, string> = {
@@ -56,41 +62,56 @@ const getStyleModifiers = (platform: Platform, tone: string, size: ImageSize): s
   return `${selectedPlatformStyle}, ${selectedToneStyle}, ${selectedSizeModifier}, photorealistic`;
 };
 
-export const generateSocialContent = async (idea: string, tone: string): Promise<GeneratedContent> => {
+// Define shared schema for a single post
+const postSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    content: { type: Type.STRING, description: "The main text body of the post. For YouTube this is the video title and description." },
+    imagePrompt: { type: Type.STRING, description: "A detailed, vivid prompt to generate a high-quality image for this post." },
+    hashtags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Relevant hashtags." }
+  },
+  required: ["content", "imagePrompt", "hashtags"]
+};
+
+export const generateSocialContent = async (idea: string, tone: string, length: string = 'Medium'): Promise<GeneratedContent> => {
   // Initialize client here to use the latest available API Key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   // Use gemini-3-flash-preview as the standard free/efficient model for text
   const modelId = "gemini-3-flash-preview";
 
-  const postSchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      content: { type: Type.STRING, description: "The main text body of the post." },
-      imagePrompt: { type: Type.STRING, description: "A detailed, vivid prompt to generate a high-quality image for this post." },
-      hashtags: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Relevant hashtags." }
-    },
-    required: ["content", "imagePrompt", "hashtags"]
-  };
-
   const responseSchema: Schema = {
     type: Type.OBJECT,
     properties: {
       linkedin: postSchema,
       twitter: postSchema,
-      instagram: postSchema
+      instagram: postSchema,
+      pinterest: postSchema,
+      youtube: postSchema,
+      discord: postSchema
     },
-    required: ["linkedin", "twitter", "instagram"]
+    required: ["linkedin", "twitter", "instagram", "pinterest", "youtube", "discord"]
   };
 
   const prompt = `
     You are an expert social media manager. 
     Create content for a user's idea: "${idea}".
     Tone: ${tone}.
+    Target Length: ${length}.
     
-    1. LinkedIn: Professional, long-form, insightful, structured with paragraphs.
-    2. Twitter/X: Short, punchy, under 280 chars, engaging.
-    3. Instagram: Visual-focused caption, engaging hook, clean formatting.
+    Guidelines based on length preference:
+    - Short: Concise, punchy, ~50 words. Focus on the core message.
+    - Medium: Balanced, standard engagement, ~150 words. Good mix of hook and value.
+    - Long: Detailed, storytelling, ~300+ words (where platform allows). Deep dive.
+    
+    IMPORTANT: Strictly adhere to hard platform limits (e.g., Twitter/X 280 chars) regardless of length preference.
+    
+    1. LinkedIn: Professional, insightful.
+    2. Twitter/X: Short, punchy, under 280 chars.
+    3. Instagram: Engaging hook, clean spacing.
+    4. Pinterest: Title and Description focused on keywords.
+    5. YouTube: Video Title (first line) and compelling Description.
+    6. Discord: Community focused, markdown formatted.
     
     For each, provide the text content, a specific image generation prompt tailored to the platform's visual style, and hashtags.
   `;
@@ -112,6 +133,53 @@ export const generateSocialContent = async (idea: string, tone: string): Promise
     return JSON.parse(jsonText) as GeneratedContent;
   } catch (error) {
     console.error("Error generating text content:", error);
+    throw error;
+  }
+};
+
+export const generateSinglePlatformText = async (platform: Platform, idea: string, tone: string, length: string = 'Medium'): Promise<SocialPost> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const modelId = "gemini-3-flash-preview";
+
+  const prompt = `
+    You are an expert social media manager. 
+    Regenerate content for a user's idea: "${idea}".
+    Tone: ${tone}.
+    Target Length: ${length}.
+    Target Platform: ${platform}.
+    
+    Guidelines based on length preference:
+    - Short: Concise, punchy, ~50 words.
+    - Medium: Balanced, standard engagement, ~150 words.
+    - Long: Detailed, storytelling, ~300+ words (where platform allows).
+    
+    Ensure the content is optimized specifically for ${platform} best practices.
+    Provide the text content, a specific image generation prompt tailored to the platform's visual style, and hashtags.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: postSchema, // Use single post schema
+        systemInstruction: `You are a specialist ${platform} content creator.`,
+      }
+    });
+
+    const jsonText = response.text;
+    if (!jsonText) throw new Error("No response from Gemini.");
+
+    const result = JSON.parse(jsonText);
+    
+    // Ensure the platform field is present in the return object
+    return {
+      ...result,
+      platform: platform
+    } as SocialPost;
+  } catch (error) {
+    console.error(`Error regenerating text for ${platform}:`, error);
     throw error;
   }
 };

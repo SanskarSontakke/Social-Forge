@@ -1,6 +1,8 @@
-export type Platform = 'linkedin' | 'twitter' | 'instagram';
+export type Platform = 'linkedin' | 'twitter' | 'instagram' | 'pinterest' | 'youtube' | 'discord';
 
 export type Tone = 'Professional' | 'Witty' | 'Urgent' | 'Empathetic' | 'Controversial';
+
+export type TextLength = 'Short' | 'Medium' | 'Long';
 
 export enum ImageSize {
   Size1K = '1K',
@@ -31,6 +33,9 @@ export interface GeneratedContent {
   linkedin: SocialPost;
   twitter: SocialPost;
   instagram: SocialPost;
+  pinterest: SocialPost;
+  youtube: SocialPost;
+  discord: SocialPost;
 }
 
 export interface GenerationState {
@@ -45,4 +50,5 @@ export interface Settings {
   tone: Tone;
   imageSize: ImageSize;
   aspectRatio: AspectRatio;
+  textLength: TextLength;
 }
